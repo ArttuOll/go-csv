@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 
+	"github.com/ArttuOll/go-csv/cmd/parser"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +16,15 @@ examples and usage of using your application. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		_, err := parser.Parse(cmd, args)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	},
+	Args: cobra.ExactArgs(1),
 }
 
 func Execute() {
@@ -26,5 +35,5 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().BoolP("header-line", "h", false, "Indicates the presence of a header line in the file")
+	rootCmd.Flags().Bool("header-line", false, "Indicates the presence of a header line in the file")
 }
