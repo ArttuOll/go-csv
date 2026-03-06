@@ -3,7 +3,6 @@ package cmd
 import (
 	"os"
 
-	"github.com/ArttuOll/go-csv/cmd/parser"
 	"github.com/spf13/cobra"
 )
 
@@ -16,14 +15,7 @@ examples and usage of using your application. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		_, err := parser.Parse(cmd, args)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	},
+	RunE: Run,
 	Args: cobra.ExactArgs(1),
 }
 
