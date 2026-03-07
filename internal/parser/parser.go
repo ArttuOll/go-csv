@@ -8,14 +8,14 @@ import (
 )
 
 type CsvParser struct {
-	reader          *bufio.Reader
+	scanner         *bufio.Scanner
 	fieldsInARecord int
 	currentLine     int
 }
 
 func NewCsvParser(r io.Reader) *CsvParser {
 	return &CsvParser{
-		reader: bufio.NewReader(r),
+		scanner: bufio.NewScanner(r),
 	}
 }
 
@@ -24,14 +24,38 @@ func (parser *CsvParser) Parse() (records [][]string, err error) {
 
 	records = append(records, line)
 
+	for parser.scanner.Scan() {
+		parser.currentLine++
+
+		nextLine, err := parser.parseLine()
+		if err != nil {
+			return nil, err
+		}
+
+		records = append(records, nextLine)
+	}
+
 	return records, nil
 }
 
-func (parser *CsvParser) parseFirstLine() (record []string, err error) {
-	line, err := parser.reader.ReadString('\n')
+func (parser *CsvParser) parseLine() (record []string, err error) {
+	line := parser.scanner.Text()
+
+	fields, err := parser.parseRecord(line)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the first line of the CSV file: %v", err)
+		return nil, err
 	}
+
+	numberOfFields := len(fields)
+	if numberOfFields != parser.fieldsInARecord {
+		return nil, &CsvParseError{Line: parser.currentLine, Message: fmt.Sprintf("failed to parse line. too many fields in a record: %v, but should be %v", numberOfFields, parser.fieldsInARecord)}
+	}
+
+	return fields, nil
+}
+
+func (parser *CsvParser) parseFirstLine() (record []string, err error) {
+	line := parser.scanner.Text()
 
 	// TODO: headers are parsed here
 
