@@ -28,21 +28,31 @@ func (parser *CsvParser) Parse() (records [][]string, err error) {
 }
 
 func (parser *CsvParser) parseFirstLine() (record []string, err error) {
-	line, err := parser.reader.ReadSlice('\n')
+	line, err := parser.reader.ReadString('\n')
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the first line of the CSV file: %v", err)
 	}
 
 	// TODO: headers are parsed here
 
-	fields := parser.parseRecord(string(line))
+	fields, err := parser.parseRecord(line)
+	if err != nil {
+		return nil, err
+	}
+
 	parser.fieldsInARecord = len(fields)
 	return fields, nil
 }
 
-func (parser *CsvParser) parseRecord(line string) []string {
+func (parser *CsvParser) parseRecord(line string) ([]string, error) {
 	// TODO: parse fields
-	return strings.Split(line, ",")
+	withoutLineBreak, found := strings.CutSuffix(line, "\r\n")
+	if !found {
+		// TODO: Last record may not have a line break
+		return nil, fmt.Errorf("failed to parse record %v. missing line break.", line)
+	}
+
+	return strings.Split(withoutLineBreak, ","), nil
 }
 
 type CsvParseError struct {
