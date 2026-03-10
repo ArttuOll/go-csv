@@ -27,7 +27,7 @@ func (parser *CsvParser) ParseAll() (records [][]string, err error) {
 	for parser.scanner.Scan() {
 		parser.currentLine++
 
-		nextLine, err := parser.parseLine()
+		nextLine, err := parser.Parse()
 		if err != nil {
 			return nil, err
 		}
@@ -38,7 +38,7 @@ func (parser *CsvParser) ParseAll() (records [][]string, err error) {
 	return records, nil
 }
 
-func (parser *CsvParser) parseLine() (record []string, err error) {
+func (parser *CsvParser) Parse() (record []string, err error) {
 	line := parser.scanner.Text()
 
 	fields, err := parser.parseRecord(line)
