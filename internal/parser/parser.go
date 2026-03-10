@@ -20,10 +20,11 @@ func NewCsvParser(r io.Reader) *CsvParser {
 }
 
 func (parser *CsvParser) ParseAll() (records [][]string, err error) {
+
 	for parser.scanner.Scan() {
-		nextLine, err := parser.Parse()
+		nextLine, err := parser.parseLine()
 		if err != nil {
-			return nil, err
+			return records, err
 		}
 
 		records = append(records, nextLine)
@@ -33,6 +34,12 @@ func (parser *CsvParser) ParseAll() (records [][]string, err error) {
 }
 
 func (parser *CsvParser) Parse() (record []string, err error) {
+	parser.scanner.Scan()
+
+	return parser.parseLine()
+}
+
+func (parser *CsvParser) parseLine() (record []string, err error) {
 	line := parser.scanner.Text()
 
 	fields, err := parser.parseRecord(line)
@@ -56,12 +63,7 @@ func (parser *CsvParser) Parse() (record []string, err error) {
 
 func (parser *CsvParser) parseRecord(line string) ([]string, error) {
 	// TODO: parse fields
-	withoutLineBreak, found := strings.CutSuffix(line, "\r\n")
-	if !found {
-		// TODO: Last record may not have a line break
-		return nil, fmt.Errorf("failed to parse record %v. missing line break.", line)
-	}
-
+	withoutLineBreak, _ := strings.CutSuffix(line, "\r\n")
 	return strings.Split(withoutLineBreak, ","), nil
 }
 
