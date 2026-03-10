@@ -21,7 +21,7 @@ func Run(cmd *cobra.Command, args []string) error {
 
 	csvParser := parser.NewCsvParser(file)
 
-	fmt.Println(csvParser.Parse())
+	fmt.Println(csvParser.ParseAll())
 
 	return nil
 }

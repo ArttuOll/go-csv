@@ -19,7 +19,7 @@ func NewCsvParser(r io.Reader) *CsvParser {
 	}
 }
 
-func (parser *CsvParser) Parse() (records [][]string, err error) {
+func (parser *CsvParser) ParseAll() (records [][]string, err error) {
 	line, err := parser.parseFirstLine()
 
 	records = append(records, line)
