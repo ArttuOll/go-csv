@@ -20,13 +20,7 @@ func NewCsvParser(r io.Reader) *CsvParser {
 }
 
 func (parser *CsvParser) ParseAll() (records [][]string, err error) {
-	line, err := parser.parseFirstLine()
-
-	records = append(records, line)
-
 	for parser.scanner.Scan() {
-		parser.currentLine++
-
 		nextLine, err := parser.Parse()
 		if err != nil {
 			return nil, err
@@ -46,25 +40,17 @@ func (parser *CsvParser) Parse() (record []string, err error) {
 		return nil, err
 	}
 
+	parser.currentLine++
+
+	if parser.fieldsInARecord == 0 {
+		parser.fieldsInARecord = len(fields)
+	}
+
 	numberOfFields := len(fields)
 	if numberOfFields != parser.fieldsInARecord {
 		return nil, &CsvParseError{Line: parser.currentLine, Message: fmt.Sprintf("failed to parse line. too many fields in a record: %v, but should be %v", numberOfFields, parser.fieldsInARecord)}
 	}
 
-	return fields, nil
-}
-
-func (parser *CsvParser) parseFirstLine() (record []string, err error) {
-	line := parser.scanner.Text()
-
-	// TODO: headers are parsed here
-
-	fields, err := parser.parseRecord(line)
-	if err != nil {
-		return nil, err
-	}
-
-	parser.fieldsInARecord = len(fields)
 	return fields, nil
 }
 

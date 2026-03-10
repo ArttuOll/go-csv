@@ -17,13 +17,26 @@ func TestParseRecord(t *testing.T) {
 	}
 }
 
-// TODO: Last record may not have a line break
 func TestParseRecordMissingLineBreak(t *testing.T) {
-	input := "apple,orange,banana"
+	input := `apple,orange,banana
+	1,2,3`
 	parser := NewCsvParser(strings.NewReader(input))
 	_, err := parser.parseRecord(input)
 
 	if err == nil {
 		t.Errorf("parseRecord: didn't return an error on missing line break")
+	}
+}
+
+/**
+* 2. The last record in the file may or may not have an ending line break
+ */
+func TestParseRecordMissingLineBreakLastLine(t *testing.T) {
+	input := "apple,orange,banana\r\n1,2,3"
+	parser := NewCsvParser(strings.NewReader(input))
+	_, err := parser.parseRecord(input)
+
+	if err != nil {
+		t.Errorf("parseRecord: last record shouldn't need to have a line break")
 	}
 }
