@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestParseRecord(t *testing.T) {
+func TestParseSingleRecord(t *testing.T) {
 	input := "apple,orange,banana\r\n"
 	parser := NewCsvParser(strings.NewReader(input))
 	got, err := parser.parseRecord(input)
@@ -19,7 +19,7 @@ func TestParseRecord(t *testing.T) {
 	}
 }
 
-func TestParseRecordMissingLineBreak(t *testing.T) {
+func TestMissingLineBreak(t *testing.T) {
 	input := "apple,orange,banana\r\n1,2,34,5,6"
 	parser := NewCsvParser(strings.NewReader(input))
 	records, err := parser.ParseAll()
@@ -41,6 +41,32 @@ func TestParseRecordMissingLineBreak(t *testing.T) {
 	expectedRecord := []string{"apple", "orange", "banana"}
 	if len(records) != 1 || !slices.Equal(records[0], expectedRecord) {
 		t.Errorf("%s", fmt.Sprintf("unexpected record parsed before missing line break. expected [%v], got %v", expectedRecord, records))
+	}
+
+}
+
+func TestTooManyFields(t *testing.T) {
+	input := "apple,orange,banana\r\n1,2,3,4"
+	parser := NewCsvParser(strings.NewReader(input))
+	records, err := parser.ParseAll()
+
+	if err == nil {
+		t.Errorf("didn't return an error on too many fields")
+	}
+
+	var csvParseError *CsvParseError
+	if errors.As(err, &csvParseError) {
+		expectedErrorLine := 2
+		if csvParseError.Line != expectedErrorLine {
+			t.Errorf("%s", fmt.Sprintf("too many fields reported on wrong line. expected %v, got %v", expectedErrorLine, csvParseError.Line))
+		}
+	} else {
+		t.Errorf("wrong error type returned on too many fields. expected a CsvParseError.")
+	}
+
+	expectedRecord := []string{"apple", "orange", "banana"}
+	if len(records) != 1 || !slices.Equal(records[0], expectedRecord) {
+		t.Errorf("%s", fmt.Sprintf("unexpected record parsed before encountering too many fields. expected [%v], got %v", expectedRecord, records))
 	}
 
 }
