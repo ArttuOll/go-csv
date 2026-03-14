@@ -100,3 +100,21 @@ func TestParseRecordMissingLineBreakLastLine(t *testing.T) {
 		t.Errorf("%s", fmt.Sprintf("unexpected records parsed. expected [%v] and [%v], got %v", expectedRecord1, expectedRecord2, records))
 	}
 }
+
+/**
+* 4. The last field in the record must not be followed by a comma.
+ */
+func TestLastFieldFollowedByComma(t *testing.T) {
+	input := "apple,orange,banana,"
+	parser := NewCsvParser(strings.NewReader(input))
+	record, err := parser.Parse()
+
+	if err == nil {
+		t.Errorf("last field in a record shouldn't be allowed to be followed bya comma")
+	}
+
+	if record != nil {
+		t.Errorf("shouldn't return malformed record")
+	}
+
+}

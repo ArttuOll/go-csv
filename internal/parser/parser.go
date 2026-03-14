@@ -19,6 +19,15 @@ func NewCsvParser(r io.Reader) *CsvParser {
 	}
 }
 
+type CsvParseError struct {
+	Line    int
+	Message string
+}
+
+func (error *CsvParseError) Error() string {
+	return fmt.Sprintf("[Line %v]: %v", error.Line, error.Message)
+}
+
 func (parser *CsvParser) ParseAll() (records [][]string, err error) {
 
 	for parser.scanner.Scan() {
@@ -64,14 +73,10 @@ func (parser *CsvParser) parseLine() (record []string, err error) {
 func (parser *CsvParser) parseRecord(line string) ([]string, error) {
 	// TODO: parse fields
 	withoutLineBreak, _ := strings.CutSuffix(line, "\r\n")
+
+	if strings.HasSuffix(withoutLineBreak, ",") {
+		return nil, &CsvParseError{Line: parser.currentLine, Message: "the last field in a record can't be followed by a comma."}
+	}
+
 	return strings.Split(withoutLineBreak, ","), nil
-}
-
-type CsvParseError struct {
-	Line    int
-	Message string
-}
-
-func (error *CsvParseError) Error() string {
-	return fmt.Sprintf("[Line %v]: %v", error.Line, error.Message)
 }
