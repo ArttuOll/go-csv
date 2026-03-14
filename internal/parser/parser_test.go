@@ -8,6 +8,17 @@ import (
 	"testing"
 )
 
+func TestParseMultipleRecords(t *testing.T) {
+	input := "apple,orange,banana\r\n1,2,3\r\n"
+	parser := NewCsvParser(strings.NewReader(input))
+	got, err := parser.ParseAll()
+	want := [][]string{{"apple", "orange", "banana"}, {"1", "2", "3"}}
+
+	if !slices.Equal(got[0], want[0]) || !slices.Equal(got[1], want[1]) || err != nil {
+		t.Errorf("parseRecord: want %v, got %v", want, got)
+	}
+}
+
 func TestParseSingleRecord(t *testing.T) {
 	input := "apple,orange,banana\r\n"
 	parser := NewCsvParser(strings.NewReader(input))
