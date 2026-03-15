@@ -71,12 +71,34 @@ func (parser *CsvParser) parseLine() (record []string, err error) {
 }
 
 func (parser *CsvParser) parseRecord(line string) ([]string, error) {
-	// TODO: parse fields
 	withoutLineBreak, _ := strings.CutSuffix(line, "\r\n")
 
 	if strings.HasSuffix(withoutLineBreak, ",") {
 		return nil, &CsvParseError{Line: parser.currentLine, Message: "the last field in a record can't be followed by a comma."}
 	}
 
-	return strings.Split(withoutLineBreak, ","), nil
+	var fields []string
+	for rawField := range strings.SplitSeq(withoutLineBreak, ",") {
+		validField, err := parser.parseField(rawField)
+		if err != nil {
+			return nil, err
+		}
+
+		fields = append(fields, validField)
+	}
+
+	return fields, nil
+}
+
+func (parser *CsvParser) parseField(input string) (string, error) {
+	withoutOpeningDoubleQuote, foundOpening := strings.CutPrefix(input, `"`)
+	withoutSurroundingDoubleQuotes, foundClosing := strings.CutSuffix(withoutOpeningDoubleQuote, `"`)
+
+	if foundOpening && foundClosing {
+		if strings.Contains(withoutSurroundingDoubleQuotes, `"`) {
+			return "", &CsvParseError{Line: parser.currentLine, Message: fmt.Sprintf("fields enclosed in double quotes may not contain double quotes: %v", input)}
+		}
+	}
+
+	return input, nil
 }

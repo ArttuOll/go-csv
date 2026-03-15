@@ -118,3 +118,17 @@ func TestLastFieldFollowedByComma(t *testing.T) {
 	}
 
 }
+
+func TestParseFieldDoubleQuoteInFieldEnclosedByDoubleQuotes(t *testing.T) {
+	input := `apple,"orange"",banana`
+	parser := NewCsvParser(strings.NewReader(input))
+	record, err := parser.Parse()
+
+	if err == nil {
+		t.Errorf("double quotes within fields enclosed by double quotes shouldn't be allowed")
+	}
+
+	if record != nil {
+		t.Errorf("shouldn't return malformed record")
+	}
+}
