@@ -22,7 +22,7 @@ func TestParseMultipleRecords(t *testing.T) {
 func TestParseSingleRecord(t *testing.T) {
 	input := "apple,orange,banana\r\n"
 	parser := NewCsvParser(strings.NewReader(input))
-	got, err := parser.parseRecord(input)
+	got, err := parser.Parse()
 	want := []string{"apple", "orange", "banana"}
 
 	if !slices.Equal(got, want) || err != nil {
@@ -130,5 +130,30 @@ func TestParseFieldDoubleQuoteInFieldEnclosedByDoubleQuotes(t *testing.T) {
 
 	if record != nil {
 		t.Errorf("shouldn't return malformed record")
+	}
+}
+
+func TestParseFieldLineBreakWithinField(t *testing.T) {
+	input := `"apple","oran\r\nge","banana"`
+	parser := NewCsvParser(strings.NewReader(input))
+	_, err := parser.Parse()
+
+	if err != nil {
+		t.Errorf("line breaks within double quote enclosed fields should be allowed")
+	}
+}
+
+func TestParseFieldContainingCommaEnclosedByDoubleQuotes(t *testing.T) {
+	input := `"apple","ora,nge","banana"`
+	parser := NewCsvParser(strings.NewReader(input))
+	got, err := parser.Parse()
+	want := []string{"apple", "ora,nge", "banana"}
+
+	if err != nil {
+		t.Errorf("commas within double quote enclosed fields should be allowed: %v", err)
+	}
+
+	if !slices.Equal(want, got) {
+		t.Errorf("returned unexpected record when parsing a field with a comma. expected: %v, got: %v", want, got)
 	}
 }
