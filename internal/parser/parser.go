@@ -24,14 +24,16 @@ type CsvParser struct {
 	readToIndex     int
 	position        int
 	fieldBuffer     []string
+	done            bool
 }
 
 const BUFFER_SIZE = 8
 
 func NewCsvParser(r io.Reader) *CsvParser {
 	return &CsvParser{
-		reader: bufio.NewReader(r),
-		buffer: make([]byte, BUFFER_SIZE),
+		reader:      bufio.NewReader(r),
+		buffer:      make([]byte, BUFFER_SIZE),
+		currentLine: 1,
 	}
 }
 
@@ -45,18 +47,16 @@ func (error *CsvParseError) Error() string {
 }
 
 func (parser *CsvParser) ParseAll() (records [][]string, err error) {
-	for {
+	for !parser.done {
 		nextLine, err := parser.parseLine()
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return records, nil
-			}
-
-			return nil, err
+			return records, err
 		}
 
 		records = append(records, nextLine)
 	}
+
+	return records, nil
 }
 
 func (parser *CsvParser) Parse() (record []string, err error) {
@@ -71,24 +71,25 @@ func (parser *CsvParser) parseLine() (record []string, err error) {
 			parser.buffer = newBuffer
 		}
 
+		numberOfBytesInChunk, err := parser.reader.Read(parser.buffer[parser.readToIndex:])
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				parser.done = true
+			} else {
+				return nil, err
+			}
+		}
+
+		parser.readToIndex += numberOfBytesInChunk
+
 		// Attempt to parse data received so far
 		record, charsParsed, err := parser.parseRecord(string(parser.buffer[:parser.readToIndex]))
 		if err != nil {
 			return nil, err
 		}
 
-		// Not enough data in the buffer. Read more.
+		// Need more data
 		if charsParsed == 0 {
-			numberOfBytesInChunk, err := parser.reader.Read(parser.buffer[parser.readToIndex:])
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					return record, err
-				}
-
-				return nil, err
-			}
-
-			parser.readToIndex += numberOfBytesInChunk
 			continue
 		}
 
@@ -100,6 +101,7 @@ func (parser *CsvParser) parseLine() (record []string, err error) {
 
 		parser.position = 0
 		parser.fieldBuffer = []string{}
+
 		return record, nil
 	}
 }
@@ -119,26 +121,28 @@ func (parser *CsvParser) parseRecord(input string) ([]string, int, error) {
 		parser.fieldBuffer = append(parser.fieldBuffer, field)
 		parser.position += len(field)
 
-		if input[parser.position] == ',' {
-			parser.position++
-		}
-
-		if input[parser.position] == '\r' {
-			parser.position++
-		}
-
-		if input[parser.position] == '\n' {
-			parser.position++
-			numberOfFields := len(parser.fieldBuffer)
-
-			if parser.fieldsInARecord == 0 {
-				parser.fieldsInARecord = len(parser.fieldBuffer)
-			} else if numberOfFields != parser.fieldsInARecord {
-				return nil, 0, &CsvParseError{Line: parser.currentLine, Message: fmt.Sprintf("failed to parse record. too many fields in a record: %v, but should be %v", numberOfFields, parser.fieldsInARecord)}
+		if parser.peek(input) == ',' {
+			if parser.position+1 == len(input) {
+				return nil, 0, &CsvParseError{Line: parser.currentLine, Message: "failed to parse record. trailing commas are not allowed"}
 			}
 
-			return parser.fieldBuffer, parser.position, nil
+			parser.position++
+			continue
 		}
+
+		if parser.peek(input) == '\r' {
+			parser.position += 2
+		}
+
+		numberOfFields := len(parser.fieldBuffer)
+
+		if parser.fieldsInARecord == 0 {
+			parser.fieldsInARecord = len(parser.fieldBuffer)
+		} else if numberOfFields != parser.fieldsInARecord {
+			return nil, 0, &CsvParseError{Line: parser.currentLine, Message: fmt.Sprintf("failed to parse record. too many fields in a record: %v, but should be %v", numberOfFields, parser.fieldsInARecord)}
+		}
+
+		return parser.fieldBuffer, parser.position, nil
 	}
 }
 
@@ -187,6 +191,18 @@ func (parser *CsvParser) parseField(input string) (string, int, error) {
 		}
 	}
 
+	if parser.done {
+		return input, len(input), nil
+	}
+
 	// The input doesn't contain a complete field. We need more data.
 	return "", 0, nil
+}
+
+func (parser *CsvParser) peek(input string) byte {
+	if parser.position >= len(input) {
+		return 0
+	}
+
+	return input[parser.position]
 }
