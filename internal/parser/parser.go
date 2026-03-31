@@ -175,7 +175,7 @@ func (parser *CsvParser) parseField(input string) (string, int, error) {
 			numberOfDoubleQuotes++
 
 			// Closing double quote, field ends
-			if i+1 == len(input) && numberOfDoubleQuotes%2 == 0 {
+			if (input[i+1] == '\r' || input[i+1] == ',') && numberOfDoubleQuotes%2 == 0 {
 				return input[1 : len(input)-1], i + 1, nil
 			}
 		}
