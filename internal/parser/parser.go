@@ -148,11 +148,12 @@ func (parser *CsvParser) parseRecord(input string) ([]string, int, error) {
 
 func (parser *CsvParser) parseField(input string) (string, int, error) {
 	escaped := false
-	escapingDoubleQuote := false
+	numberOfDoubleQuotes := 0
 
 	for i, v := range input {
 		if i == 0 && v == '"' {
 			escaped = true
+			numberOfDoubleQuotes++
 			continue
 		}
 
@@ -171,24 +172,17 @@ func (parser *CsvParser) parseField(input string) (string, int, error) {
 		}
 
 		if v == '"' {
+			numberOfDoubleQuotes++
+
 			// Closing double quote, field ends
-			if i+1 == len(input) {
+			if i+1 == len(input) && numberOfDoubleQuotes%2 == 0 {
 				return input[1 : len(input)-1], i + 1, nil
 			}
-
-			// Escaped double quote sequence
-			if input[i+1] == '"' {
-				escapingDoubleQuote = true
-				continue
-			}
-
-			if escapingDoubleQuote {
-				escapingDoubleQuote = false
-				continue
-			}
-
-			return "", 0, &CsvParseError{Line: parser.currentLine, Message: "double quotes within double quote enclosed fields must be escaped with a preceding double quote"}
 		}
+	}
+
+	if numberOfDoubleQuotes%2 != 0 {
+		return "", 0, &CsvParseError{Line: parser.currentLine, Message: "double quotes within double quote enclosed fields must be escaped with a preceding double quote"}
 	}
 
 	if parser.done {
