@@ -180,6 +180,8 @@ parserLoop:
 			}
 
 			parser.state = UnquotedField
+
+			field = append(field, v)
 			parser.position++
 
 		case UnquotedField:
@@ -192,6 +194,7 @@ parserLoop:
 				break parserLoop
 			}
 
+			field = append(field, v)
 			parser.position++
 
 		case QuotedField:
@@ -201,6 +204,7 @@ parserLoop:
 				continue
 			}
 
+			field = append(field, v)
 			parser.position++
 
 		case QuoteInQuotedField:
@@ -217,8 +221,6 @@ parserLoop:
 
 			return "", &CsvParseError{Line: parser.currentLine, Message: "double quotes within double quote enclosed fields must be escaped with a preceding double quote"}
 		}
-
-		field = append(field, v)
 	}
 
 	if parser.state == ParsingRecord || parser.state == QuoteInQuotedField {

@@ -131,3 +131,33 @@ func TestParseFieldContainingCommaEnclosedByDoubleQuotes(t *testing.T) {
 		t.Errorf("returned unexpected record when parsing a field with a comma. expected: %v, got: %v", want, got)
 	}
 }
+
+func TestEmptyFile(t *testing.T) {
+	input := ``
+	parser := NewCsvParser(strings.NewReader(input))
+	got, err := parser.Parse()
+	want := []string{""}
+
+	if err != nil {
+		t.Errorf("empty file should be allowed: %v", err)
+	}
+
+	if !slices.Equal(want, got) {
+		t.Errorf("returned unexpected record when parsing an empty file. expected: %v, got: %v", want, got)
+	}
+}
+
+func TestQuotedEmptyFields(t *testing.T) {
+	input := `"",""`
+	parser := NewCsvParser(strings.NewReader(input))
+	got, err := parser.Parse()
+	want := []string{""}
+
+	if err != nil {
+		t.Errorf("quoted empty fields should be allowed: %v", err)
+	}
+
+	if !slices.Equal(want, got) {
+		t.Errorf("returned unexpected record when parsing quoted empty fields. expected: %v, got: %v", want, got)
+	}
+}
