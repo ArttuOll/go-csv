@@ -113,7 +113,7 @@ func TestParseFieldLineBreakWithinField(t *testing.T) {
 	_, err := parser.Parse()
 
 	if err != nil {
-		t.Errorf("line breaks within double quote enclosed fields should be allowed")
+		t.Errorf("line breaks within double quote enclosed fields should be allowed: %v", err)
 	}
 }
 

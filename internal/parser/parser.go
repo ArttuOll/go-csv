@@ -10,8 +10,13 @@ import (
 type ParserState int
 
 const (
-	ParsingField = iota
+	StartField = iota
+	UnquotedField
+	EndField
 	ParsingRecord
+	QuotedField
+	QuoteInQuotedField
+	EndRecord
 )
 
 type CsvParser struct {
@@ -23,7 +28,6 @@ type CsvParser struct {
 	buffer          []byte
 	readToIndex     int
 	position        int
-	fieldBuffer     []string
 	done            bool
 }
 
@@ -34,6 +38,7 @@ func NewCsvParser(r io.Reader) *CsvParser {
 		reader:      bufio.NewReader(r),
 		buffer:      make([]byte, BUFFER_SIZE),
 		currentLine: 1,
+		state:       StartField,
 	}
 }
 
@@ -83,7 +88,7 @@ func (parser *CsvParser) parseLine() (record []string, err error) {
 		parser.readToIndex += numberOfBytesInChunk
 
 		// Attempt to parse data received so far
-		record, charsParsed, err := parser.parseRecord(string(parser.buffer[:parser.readToIndex]))
+		record, charsParsed, err := parser.parseRecord()
 		if err != nil {
 			return nil, err
 		}
@@ -100,103 +105,135 @@ func (parser *CsvParser) parseLine() (record []string, err error) {
 		parser.readToIndex -= charsParsed
 
 		parser.position = 0
-		parser.fieldBuffer = []string{}
 
 		return record, nil
 	}
 }
 
-func (parser *CsvParser) parseRecord(input string) ([]string, int, error) {
-	for {
-		field, charsRead, err := parser.parseField(input[parser.position:])
-		if err != nil {
-			return nil, 0, err
-		}
-
-		// Need more data
-		if charsRead == 0 {
-			return nil, 0, nil
-		}
-
-		parser.fieldBuffer = append(parser.fieldBuffer, field)
-		parser.position += len(field)
-
-		if parser.peek(input) == ',' {
-			if parser.position+1 == len(input) {
-				return nil, 0, &CsvParseError{Line: parser.currentLine, Message: "failed to parse record. trailing commas are not allowed"}
+func (parser *CsvParser) parseRecord() ([]string, int, error) {
+	var fields []string
+	for parser.position < parser.readToIndex {
+		if parser.state != ParsingRecord {
+			field, err := parser.parseField()
+			if err != nil {
+				return nil, 0, err
 			}
 
-			parser.position++
+			fields = append(fields, field)
+			parser.state = ParsingRecord
 			continue
 		}
 
-		if parser.peek(input) == '\r' {
-			parser.position += 2
+		if parser.buffer[parser.position] == ',' {
+			parser.position++
+			parser.state = StartField
+			continue
 		}
 
-		numberOfFields := len(parser.fieldBuffer)
+		// We've hit a delimiter (a newline and we know we're not inside a field.)
+		if parser.buffer[parser.position] == '\r' {
+			parser.position += 2
+			parser.state = EndRecord
+			break
+		}
+
+		return nil, 0, &CsvParseError{Line: parser.currentLine, Message: "failed to parse record. unexpected field separator."}
+	}
+
+	if parser.done && parser.state == StartField {
+		return nil, 0, &CsvParseError{Line: parser.currentLine, Message: "failed to parse record. trailing comma"}
+	}
+
+	if parser.done || parser.state == EndRecord {
+		numberOfFields := len(fields)
 
 		if parser.fieldsInARecord == 0 {
-			parser.fieldsInARecord = len(parser.fieldBuffer)
+			parser.fieldsInARecord = numberOfFields
 		} else if numberOfFields != parser.fieldsInARecord {
 			return nil, 0, &CsvParseError{Line: parser.currentLine, Message: fmt.Sprintf("failed to parse record. too many fields in a record: %v, but should be %v", numberOfFields, parser.fieldsInARecord)}
 		}
 
-		return parser.fieldBuffer, parser.position, nil
+		parser.state = StartField
+		return fields, parser.position, nil
 	}
+
+	// The buffer doesn't contain a complete record. We need to read more data.
+	parser.position = 0
+	parser.state = StartField
+	return nil, 0, nil
 }
 
-func (parser *CsvParser) parseField(input string) (string, int, error) {
-	escaped := false
-	numberOfDoubleQuotes := 0
+func (parser *CsvParser) parseField() (string, error) {
+	var field []byte
 
-	for i, v := range input {
-		if i == 0 && v == '"' {
-			escaped = true
-			numberOfDoubleQuotes++
-			continue
-		}
+parserLoop:
+	for parser.position < parser.readToIndex {
+		v := parser.buffer[parser.position]
 
-		// Final field ends
-		if !escaped && (v == '\r' || v == '\n') {
-			return input[:i], i, nil
-		}
-
-		if !escaped && v == '"' {
-			return "", 0, &CsvParseError{Line: parser.currentLine, Message: "fields containing double quotes must be enclosed by double quotes. the contained double quote must be escaped with a preceding double quote."}
-		}
-
-		// Field ends
-		if !escaped && v == ',' {
-			return input[:i], i, nil
-		}
-
-		if v == '"' {
-			numberOfDoubleQuotes++
-
-			// Closing double quote, field ends
-			if (input[i+1] == '\r' || input[i+1] == ',') && numberOfDoubleQuotes%2 == 0 {
-				return input[1 : len(input)-1], i + 1, nil
+		switch parser.state {
+		case StartField:
+			if v == '"' {
+				// First character of the field is a double quote. The field is quoted.
+				parser.state = QuotedField
+				parser.position++
+				continue
 			}
+
+			parser.state = UnquotedField
+			parser.position++
+
+		case UnquotedField:
+			if v == '"' {
+				return "", &CsvParseError{Line: parser.currentLine, Message: "fields containing double quotes must be enclosed by double quotes. the contained double quote must be escaped with a preceding double quote."}
+			}
+
+			if v == '\r' || v == ',' {
+				parser.state = ParsingRecord
+				break parserLoop
+			}
+
+			parser.position++
+
+		case QuotedField:
+			if v == '"' {
+				parser.state = QuoteInQuotedField
+				parser.position++
+				continue
+			}
+
+			parser.position++
+
+		case QuoteInQuotedField:
+			if v == '"' {
+				parser.state = QuotedField
+				parser.position++
+				continue
+			}
+
+			if v == '\r' || v == ',' {
+				parser.state = ParsingRecord
+				break parserLoop
+			}
+
+			return "", &CsvParseError{Line: parser.currentLine, Message: "double quotes within double quote enclosed fields must be escaped with a preceding double quote"}
 		}
+
+		field = append(field, v)
 	}
 
-	if numberOfDoubleQuotes%2 != 0 {
-		return "", 0, &CsvParseError{Line: parser.currentLine, Message: "double quotes within double quote enclosed fields must be escaped with a preceding double quote"}
+	if parser.state == ParsingRecord || parser.state == QuoteInQuotedField {
+		return string(field), nil
 	}
 
-	if parser.done {
-		return input, len(input), nil
+	if !parser.done {
+		// The buffer didn't contain a complete field
+		return "", nil
 	}
 
-	// The input doesn't contain a complete field. We need more data.
-	return "", 0, nil
-}
-
-func (parser *CsvParser) peek(input string) byte {
-	if parser.position >= len(input) {
-		return 0
+	if parser.state == QuotedField {
+		return "", &CsvParseError{Line: parser.currentLine, Message: "failed to parse field. unmatched double quote"}
 	}
 
-	return input[parser.position]
+	// The buffer didn't contain a complete field
+	return string(field), nil
 }
