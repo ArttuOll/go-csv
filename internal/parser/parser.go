@@ -17,6 +17,7 @@ const (
 	QuotedField
 	QuoteInQuotedField
 	EndRecord
+	Delimiter
 )
 
 type CsvParser struct {
@@ -190,8 +191,8 @@ parserLoop:
 			}
 
 			if v == '\r' || v == ',' {
-				parser.state = ParsingRecord
-				break parserLoop
+				parser.state = Delimiter
+				continue
 			}
 
 			field = append(field, v)
@@ -215,11 +216,15 @@ parserLoop:
 			}
 
 			if v == '\r' || v == ',' {
-				parser.state = ParsingRecord
-				break parserLoop
+				parser.state = Delimiter
+				continue
 			}
 
 			return "", &CsvParseError{Line: parser.currentLine, Message: "double quotes within double quote enclosed fields must be escaped with a preceding double quote"}
+
+		case Delimiter:
+			parser.state = ParsingRecord
+			break parserLoop
 		}
 	}
 
