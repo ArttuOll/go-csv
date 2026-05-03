@@ -161,3 +161,13 @@ func TestQuotedEmptyFields(t *testing.T) {
 		t.Errorf("returned unexpected record when parsing quoted empty fields. expected: %v, got: %v", want, got)
 	}
 }
+
+func TestRecordTerminatedWithJustCarriageReturn(t *testing.T) {
+	input := `apple,orange\r`
+	parser := NewCsvParser(strings.NewReader(input))
+	_, err := parser.Parse()
+
+	if err == nil {
+		t.Errorf("record isn't allowed to be terminated with just a carriage return.")
+	}
+}
