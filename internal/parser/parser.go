@@ -14,6 +14,7 @@ const (
 	UnquotedField
 	QuotedField
 	AfterQuote
+	FinishRecord
 )
 
 type CsvParser struct {
@@ -130,11 +131,7 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 				p.recordBuffer = append(p.recordBuffer, "")
 
 			case '\r':
-				if !p.ensureNext('\n') {
-					return nil, 0, false, nil
-				}
-
-				return p.finishRecord(p.position + 2)
+				p.state = FinishRecord
 
 			default:
 				p.state = UnquotedField
@@ -153,13 +150,14 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 				p.pushField()
 				p.state = StartField
 
-			case '\r':
-				if !p.ensureNext('\n') {
-					return nil, 0, false, nil
+			case '\n':
+				return nil, 0, false, &CsvParseError{
+					Line:    p.currentLine,
+					Message: "unexpected newline in unquoted field",
 				}
 
-				p.pushField()
-				return p.finishRecord(p.position + 2)
+			case '\r':
+				p.state = FinishRecord
 
 			default:
 				p.fieldBuffer = append(p.fieldBuffer, v)
@@ -183,11 +181,7 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 				p.state = StartField
 
 			case '\r':
-				if !p.ensureNext('\n') {
-					return nil, 0, false, nil
-				}
-				p.pushField()
-				return p.finishRecord(p.position + 2)
+				p.state = FinishRecord
 
 			default:
 				return nil, 0, false, &CsvParseError{
@@ -195,6 +189,18 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 					Message: "invalid character after closing quote",
 				}
 			}
+
+		case FinishRecord:
+			p.pushField()
+
+			if v != '\n' {
+				return nil, 0, false, &CsvParseError{
+					Line:    p.currentLine,
+					Message: "invalid character after carriage return at the end of record",
+				}
+			}
+
+			return p.finishRecord(p.position + 1)
 		}
 
 		p.position++
@@ -219,6 +225,11 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 			if len(p.recordBuffer) > 0 {
 				p.recordBuffer = append(p.recordBuffer, "")
 				return p.finishRecord(p.position)
+			}
+		case FinishRecord:
+			return nil, 0, false, &CsvParseError{
+				Line:    p.currentLine,
+				Message: "line feed missing from end of record",
 			}
 		}
 	}

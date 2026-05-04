@@ -163,11 +163,21 @@ func TestQuotedEmptyFields(t *testing.T) {
 }
 
 func TestRecordTerminatedWithJustCarriageReturn(t *testing.T) {
-	input := `apple,orange\r`
+	input := "apple,orange\r"
 	parser := NewCsvParser(strings.NewReader(input))
 	_, err := parser.Parse()
 
 	if err == nil {
-		t.Errorf("record isn't allowed to be terminated with just a carriage return.")
+		t.Errorf("record isn't allowed to be terminated with just a carriage return")
+	}
+}
+
+func TestRecordTerminatedWithJustLineFeed(t *testing.T) {
+	input := "apple,orange\n"
+	parser := NewCsvParser(strings.NewReader(input))
+	_, err := parser.Parse()
+
+	if err == nil {
+		t.Errorf("record isn't allowed to be terminated with just a line feed")
 	}
 }
