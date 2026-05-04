@@ -136,7 +136,7 @@ func TestEmptyFile(t *testing.T) {
 	input := ``
 	parser := NewCsvParser(strings.NewReader(input))
 	got, err := parser.Parse()
-	want := []string{""}
+	want := []string{}
 
 	if err != nil {
 		t.Errorf("empty file should be allowed: %v", err)
