@@ -133,6 +133,7 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 				if !p.ensureNext('\n') {
 					return nil, 0, false, nil
 				}
+
 				return p.finishRecord(p.position + 2)
 
 			default:

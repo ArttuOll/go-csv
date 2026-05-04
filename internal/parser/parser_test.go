@@ -83,14 +83,14 @@ func TestLastFieldFollowedByComma(t *testing.T) {
 	parser := NewCsvParser(strings.NewReader(input))
 	record, err := parser.Parse()
 
-	if err == nil {
-		t.Errorf("last field in a record shouldn't be allowed to be followed bya comma")
+	if err != nil {
+		t.Errorf("last field in a record should be allowed to be followed by a comma. this should result in an empty field.")
 	}
 
-	if record != nil {
-		t.Errorf("shouldn't return malformed record")
+	expectedRecord := []string{"apple", "orange", "banana", ""}
+	if !slices.Equal(record, expectedRecord) {
+		t.Errorf("%s", fmt.Sprintf("unexpected record parsed when last field is followed by a comma. expected [%v], got %v", expectedRecord, record))
 	}
-
 }
 
 func TestParseFieldDoubleQuoteInFieldEnclosedByDoubleQuotes(t *testing.T) {
