@@ -151,7 +151,7 @@ func TestQuotedEmptyFields(t *testing.T) {
 	input := `"",""`
 	parser := NewCsvParser(strings.NewReader(input))
 	got, err := parser.Parse()
-	want := []string{""}
+	want := []string{"", ""}
 
 	if err != nil {
 		t.Errorf("quoted empty fields should be allowed: %v", err)
