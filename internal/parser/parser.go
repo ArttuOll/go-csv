@@ -105,8 +105,6 @@ func (p *CsvParser) parseLine() ([]string, error) {
 			p.readToIndex -= consumed
 			p.position = 0
 
-			p.currentLine++
-
 			return record, nil
 		}
 
@@ -164,9 +162,13 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 			}
 
 		case QuotedField:
-			if v == '"' {
+			switch v {
+			case '"':
 				p.state = AfterQuote
-			} else {
+			// Withing quoted fields the line break can be anything. \n is always present.
+			case '\n':
+				p.currentLine++
+			default:
 				p.fieldBuffer = append(p.fieldBuffer, v)
 			}
 
@@ -199,6 +201,8 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 					Message: "invalid character after carriage return at the end of record",
 				}
 			}
+
+			p.currentLine++
 
 			return p.finishRecord(p.position + 1)
 		}
