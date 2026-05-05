@@ -2,7 +2,6 @@ package parser
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 )
@@ -18,13 +17,12 @@ const (
 )
 
 type CsvParser struct {
-	reader          io.Reader
+	reader          *bufio.Reader
 	fieldsInARecord int
 	currentLine     int
 
 	state ParserState
 
-	buffer      []byte
 	readToIndex int
 	position    int
 	done        bool
@@ -38,7 +36,6 @@ const INITIAL_BUFFER_SIZE_BYTES = 8
 func NewCsvParser(r io.Reader) *CsvParser {
 	return &CsvParser{
 		reader:      bufio.NewReader(r),
-		buffer:      make([]byte, INITIAL_BUFFER_SIZE_BYTES),
 		currentLine: 1,
 		state:       StartField,
 	}
@@ -76,47 +73,32 @@ func (p *CsvParser) Parse() ([]string, error) {
 
 func (p *CsvParser) parseLine() ([]string, error) {
 	for {
-		// grow buffer if needed
-		if p.readToIndex >= len(p.buffer) {
-			newBuf := make([]byte, len(p.buffer)*2)
-			copy(newBuf, p.buffer)
-			p.buffer = newBuf
-		}
-
-		bytesRead, err := p.reader.Read(p.buffer[p.readToIndex:])
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				p.done = true
-			} else {
-				return nil, err
-			}
-		}
-
-		p.readToIndex += bytesRead
-
-		record, consumed, complete, err := p.parse()
+		record, complete, err := p.parse()
 		if err != nil {
 			return nil, err
 		}
 
 		if complete {
-			// shift buffer
-			copy(p.buffer, p.buffer[consumed:])
-			p.readToIndex -= consumed
-			p.position = 0
-
 			return record, nil
 		}
 
 		if p.done {
-			return nil, nil
+			break
 		}
 	}
+	return nil, nil
 }
 
-func (p *CsvParser) parse() ([]string, int, bool, error) {
-	for p.position < p.readToIndex {
-		v := p.buffer[p.position]
+func (p *CsvParser) parse() ([]string, bool, error) {
+	for {
+		v, err := p.reader.ReadByte()
+
+		if err != nil {
+			if err == io.EOF {
+				p.done = true
+				break
+			}
+		}
 
 		switch p.state {
 
@@ -139,7 +121,7 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 		case UnquotedField:
 			switch v {
 			case '"':
-				return nil, 0, false, &CsvParseError{
+				return nil, false, &CsvParseError{
 					Line:    p.currentLine,
 					Message: "unexpected quote in unquoted field",
 				}
@@ -149,7 +131,7 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 				p.state = StartField
 
 			case '\n':
-				return nil, 0, false, &CsvParseError{
+				return nil, false, &CsvParseError{
 					Line:    p.currentLine,
 					Message: "unexpected newline in unquoted field",
 				}
@@ -186,7 +168,7 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 				p.state = FinishRecord
 
 			default:
-				return nil, 0, false, &CsvParseError{
+				return nil, false, &CsvParseError{
 					Line:    p.currentLine,
 					Message: "invalid character after closing quote",
 				}
@@ -196,7 +178,7 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 			p.pushField()
 
 			if v != '\n' {
-				return nil, 0, false, &CsvParseError{
+				return nil, false, &CsvParseError{
 					Line:    p.currentLine,
 					Message: "invalid character after carriage return at the end of record",
 				}
@@ -204,7 +186,7 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 
 			p.currentLine++
 
-			return p.finishRecord(p.position + 1)
+			return p.finishRecord()
 		}
 
 		p.position++
@@ -214,7 +196,7 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 	if p.done {
 		switch p.state {
 		case QuotedField:
-			return nil, 0, false, &CsvParseError{
+			return nil, false, &CsvParseError{
 				Line:    p.currentLine,
 				Message: "unterminated quoted field",
 			}
@@ -222,23 +204,23 @@ func (p *CsvParser) parse() ([]string, int, bool, error) {
 		// the last record doesn't need to end in a newline
 		case UnquotedField, AfterQuote:
 			p.pushField()
-			return p.finishRecord(p.position)
+			return p.finishRecord()
 
 		case StartField:
 			// the record had a trailing comma. this translates to an empty field
 			if len(p.recordBuffer) > 0 {
 				p.recordBuffer = append(p.recordBuffer, "")
-				return p.finishRecord(p.position)
+				return p.finishRecord()
 			}
 		case FinishRecord:
-			return nil, 0, false, &CsvParseError{
+			return nil, false, &CsvParseError{
 				Line:    p.currentLine,
 				Message: "line feed missing from end of record",
 			}
 		}
 	}
 
-	return nil, 0, false, nil
+	return nil, false, nil
 }
 
 func (p *CsvParser) pushField() {
@@ -246,13 +228,13 @@ func (p *CsvParser) pushField() {
 	p.fieldBuffer = nil
 }
 
-func (p *CsvParser) finishRecord(consumed int) ([]string, int, bool, error) {
+func (p *CsvParser) finishRecord() ([]string, bool, error) {
 	record := p.recordBuffer
 
 	if p.fieldsInARecord == 0 {
 		p.fieldsInARecord = len(record)
 	} else if len(record) != p.fieldsInARecord {
-		return nil, 0, false, &CsvParseError{
+		return nil, false, &CsvParseError{
 			Line:    p.currentLine,
 			Message: fmt.Sprintf("unexpected number of fields in a record: got %d expected %d", len(record), p.fieldsInARecord),
 		}
@@ -263,13 +245,5 @@ func (p *CsvParser) finishRecord(consumed int) ([]string, int, bool, error) {
 	p.fieldBuffer = nil
 	p.state = StartField
 
-	return record, consumed, true, nil
-}
-
-func (p *CsvParser) ensureNext(expected byte) bool {
-	if p.position+1 >= p.readToIndex {
-		return false
-	}
-
-	return p.buffer[p.position+1] == expected
+	return record, true, nil
 }
