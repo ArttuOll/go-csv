@@ -33,12 +33,12 @@ type CsvParser struct {
 	recordBuffer []string
 }
 
-const BUFFER_SIZE = 8
+const INITIAL_BUFFER_SIZE_BYTES = 8
 
 func NewCsvParser(r io.Reader) *CsvParser {
 	return &CsvParser{
 		reader:      bufio.NewReader(r),
-		buffer:      make([]byte, BUFFER_SIZE),
+		buffer:      make([]byte, INITIAL_BUFFER_SIZE_BYTES),
 		currentLine: 1,
 		state:       StartField,
 	}
