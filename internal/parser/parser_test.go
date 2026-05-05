@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestParseMultipleRecords(t *testing.T) {
+func TestMultipleRecords(t *testing.T) {
 	input := "apple,orange,banana\r\n1,2,3\r\n"
 	parser := NewCsvParser(strings.NewReader(input))
 	got, err := parser.ParseAll()
@@ -19,7 +19,7 @@ func TestParseMultipleRecords(t *testing.T) {
 	}
 }
 
-func TestParseSingleRecord(t *testing.T) {
+func TestSingleRecord(t *testing.T) {
 	input := "apple,orange,banana\r\n"
 	parser := NewCsvParser(strings.NewReader(input))
 	got, err := parser.Parse()
@@ -33,7 +33,7 @@ func TestParseSingleRecord(t *testing.T) {
 /**
 * 2. The last record in the file may or may not have an ending line break
  */
-func TestParseRecordMissingLineBreakLastLine(t *testing.T) {
+func TestRecordMissingLineBreakLastLine(t *testing.T) {
 	input := "apple,orange,banana\r\n1,2,3"
 	parser := NewCsvParser(strings.NewReader(input))
 	records, err := parser.ParseAll()
@@ -75,10 +75,7 @@ func TestTooManyFields(t *testing.T) {
 
 }
 
-/**
-* 4. The last field in the record must not be followed by a comma.
- */
-func TestLastFieldFollowedByComma(t *testing.T) {
+func TestTrailingDelimiter(t *testing.T) {
 	input := "apple,orange,banana,"
 	parser := NewCsvParser(strings.NewReader(input))
 	record, err := parser.Parse()
@@ -93,21 +90,27 @@ func TestLastFieldFollowedByComma(t *testing.T) {
 	}
 }
 
-func TestParseFieldDoubleQuoteInFieldEnclosedByDoubleQuotes(t *testing.T) {
+func TestUnescapedDoubleQuoteInQuotedField(t *testing.T) {
 	input := `apple,"orange"",banana`
 	parser := NewCsvParser(strings.NewReader(input))
-	record, err := parser.Parse()
+	_, err := parser.Parse()
 
 	if err == nil {
-		t.Errorf("double quotes within fields enclosed by double quotes shouldn't be allowed")
-	}
-
-	if record != nil {
-		t.Errorf("shouldn't return malformed record")
+		t.Errorf("unescaped double quotes within quoted fields shouldn't be allowed")
 	}
 }
 
-func TestParseFieldLineBreakWithinField(t *testing.T) {
+func TestQuoteInUnquotedField(t *testing.T) {
+	input := `apple,ora"nge,banana`
+	parser := NewCsvParser(strings.NewReader(input))
+	_, err := parser.Parse()
+
+	if err == nil {
+		t.Errorf("quotes in unquoted fields shouldn't be allowed")
+	}
+}
+
+func TestLineBreakWithinField(t *testing.T) {
 	input := `"apple","oran\r\nge","banana"`
 	parser := NewCsvParser(strings.NewReader(input))
 	_, err := parser.Parse()
@@ -117,7 +120,22 @@ func TestParseFieldLineBreakWithinField(t *testing.T) {
 	}
 }
 
-func TestParseFieldContainingCommaEnclosedByDoubleQuotes(t *testing.T) {
+func TestQuotedFieldWithEscapedDoubleQuote(t *testing.T) {
+	input := `"apple","oran""ge","banana"`
+	parser := NewCsvParser(strings.NewReader(input))
+	got, err := parser.Parse()
+	want := []string{"apple", `oran"ge`, "banana"}
+
+	if err != nil {
+		t.Errorf("escaped double quotes within quoted fields should be allowed: %v", err)
+	}
+
+	if !slices.Equal(want, got) {
+		t.Errorf("returned unexpected record when parsing a field with an escaped double quote. expected: %v, got: %v", want, got)
+	}
+}
+
+func TestFieldContainingCommaEnclosedByDoubleQuotes(t *testing.T) {
 	input := `"apple","ora,nge","banana"`
 	parser := NewCsvParser(strings.NewReader(input))
 	got, err := parser.Parse()
@@ -179,5 +197,65 @@ func TestRecordTerminatedWithJustLineFeed(t *testing.T) {
 
 	if err == nil {
 		t.Errorf("record isn't allowed to be terminated with just a line feed")
+	}
+}
+
+func TestEmptyField(t *testing.T) {
+	input := "apple,,banana"
+	parser := NewCsvParser(strings.NewReader(input))
+	got, err := parser.Parse()
+	want := []string{"apple", "", "banana"}
+
+	if err != nil {
+		t.Errorf("empty fields should be allowed, but got error: %v", err)
+	}
+
+	if !slices.Equal(want, got) {
+		t.Errorf("returned unexpected record when parsing a record with an empty field. expected: %v, got: %v", want, got)
+	}
+}
+
+func TestStartingDelimiter(t *testing.T) {
+	input := ",orange,banana"
+	parser := NewCsvParser(strings.NewReader(input))
+	got, err := parser.Parse()
+	want := []string{"", "orange", "banana"}
+
+	if err != nil {
+		t.Errorf("starting delimiter should be allowed, but got error %v", err)
+	}
+
+	if !slices.Equal(want, got) {
+		t.Errorf("returned unexpected record when parsing a record with a starting delimiter. expected: %v, got: %v", want, got)
+	}
+}
+
+func TestDelimitersOnly(t *testing.T) {
+	input := ",,"
+	parser := NewCsvParser(strings.NewReader(input))
+	got, err := parser.Parse()
+	want := []string{"", "", ""}
+
+	if err != nil {
+		t.Errorf("delimiters-only files should be allowed, but got error: %v", err)
+	}
+
+	if !slices.Equal(want, got) {
+		t.Errorf("returned unexpected record when parsing a record with only delimiters. expected: %v, got: %v", want, got)
+	}
+}
+
+func TestRecordEndingAfterDelimiter(t *testing.T) {
+	input := "apple,orange,\r\n"
+	parser := NewCsvParser(strings.NewReader(input))
+	got, err := parser.Parse()
+	want := []string{"apple", "orange", ""}
+
+	if err != nil {
+		t.Errorf("records ending after delimiters should be allowed, but got error: %v", err)
+	}
+
+	if !slices.Equal(want, got) {
+		t.Errorf("returned unexpected record when parsing a record ending after a delimiter. expected: %v, got: %v", want, got)
 	}
 }
