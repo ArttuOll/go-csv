@@ -23,8 +23,6 @@ type CSVParser struct {
 
 	state ParserState
 
-	done bool
-
 	fieldBuffer  []byte
 	recordBuffer []string
 }
@@ -72,15 +70,15 @@ func (p *CSVParser) parseLine() ([]string, error) {
 	for {
 		record, complete, err := p.parse()
 		if err != nil {
+			if err == io.EOF {
+				break
+			}
+
 			return nil, err
 		}
 
 		if complete {
 			return record, nil
-		}
-
-		if p.done {
-			break
 		}
 	}
 
@@ -93,8 +91,30 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 
 		if err != nil {
 			if err == io.EOF {
-				p.done = true
-				break
+				switch p.state {
+				case QuotedField:
+					return nil, false, &CSVParseError{
+						Line:    p.currentLine,
+						Message: "unterminated quoted field",
+					}
+
+				// the last record doesn't need to end in a newline
+				case UnquotedField, AfterQuote:
+					p.pushField()
+					return p.finishRecord()
+
+				case StartField:
+					// the record had a trailing comma. this translates to an empty field
+					if len(p.recordBuffer) > 0 {
+						p.recordBuffer = append(p.recordBuffer, "")
+						return p.finishRecord()
+					}
+				case FinishRecord:
+					return nil, false, &CSVParseError{
+						Line:    p.currentLine,
+						Message: "line feed missing from end of record",
+					}
+				}
 			}
 
 			return nil, false, err
@@ -189,36 +209,6 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 			return p.finishRecord()
 		}
 	}
-
-	// EOF handling
-	if p.done {
-		switch p.state {
-		case QuotedField:
-			return nil, false, &CSVParseError{
-				Line:    p.currentLine,
-				Message: "unterminated quoted field",
-			}
-
-		// the last record doesn't need to end in a newline
-		case UnquotedField, AfterQuote:
-			p.pushField()
-			return p.finishRecord()
-
-		case StartField:
-			// the record had a trailing comma. this translates to an empty field
-			if len(p.recordBuffer) > 0 {
-				p.recordBuffer = append(p.recordBuffer, "")
-				return p.finishRecord()
-			}
-		case FinishRecord:
-			return nil, false, &CSVParseError{
-				Line:    p.currentLine,
-				Message: "line feed missing from end of record",
-			}
-		}
-	}
-
-	return nil, false, nil
 }
 
 func (p *CSVParser) pushField() {
