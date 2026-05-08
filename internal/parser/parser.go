@@ -48,7 +48,7 @@ func (p *CSVParser) ParseAll() ([][]string, error) {
 	var records [][]string
 
 	for {
-		rec, err := p.parseLine()
+		rec, err := p.Parse()
 		if err != nil {
 			return records, err
 		}
@@ -63,10 +63,6 @@ func (p *CSVParser) ParseAll() ([][]string, error) {
 }
 
 func (p *CSVParser) Parse() ([]string, error) {
-	return p.parseLine()
-}
-
-func (p *CSVParser) parseLine() ([]string, error) {
 	for {
 		record, complete, err := p.parse()
 		if err != nil {
