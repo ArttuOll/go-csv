@@ -225,7 +225,7 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 
 func (p *CSVParser) pushField() {
 	p.recordBuffer = append(p.recordBuffer, string(p.fieldBuffer))
-	p.fieldBuffer = nil
+	p.fieldBuffer = p.fieldBuffer[:0]
 }
 
 func (p *CSVParser) finishRecord() ([]string, bool, error) {
@@ -242,7 +242,7 @@ func (p *CSVParser) finishRecord() ([]string, bool, error) {
 
 	// reset state
 	p.recordBuffer = nil
-	p.fieldBuffer = nil
+	p.fieldBuffer = p.fieldBuffer[:0]
 	p.state = StartField
 
 	return record, true, nil
