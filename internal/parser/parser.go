@@ -40,7 +40,7 @@ type CSVParseError struct {
 }
 
 func (e *CSVParseError) Error() string {
-	return fmt.Sprintf("[Line %v]: %v", e.Line, e.Message)
+	return fmt.Sprintf("line %v: %v", e.Line, e.Message)
 }
 
 func (p *CSVParser) ParseAll() ([][]string, error) {
