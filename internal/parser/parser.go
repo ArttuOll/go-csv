@@ -98,6 +98,8 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 				p.done = true
 				break
 			}
+
+			return nil, false, err
 		}
 
 		switch p.state {
