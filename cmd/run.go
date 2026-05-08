@@ -19,7 +19,7 @@ func Run(cmd *cobra.Command, args []string) error {
 
 	defer file.Close()
 
-	csvParser := parser.NewCsvParser(file)
+	csvParser := parser.NewCSVParser(file)
 
 	fmt.Println(csvParser.ParseAll())
 

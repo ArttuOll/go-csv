@@ -16,7 +16,7 @@ const (
 	FinishRecord
 )
 
-type CsvParser struct {
+type CSVParser struct {
 	reader          *bufio.Reader
 	fieldsInARecord int
 	currentLine     int
@@ -31,24 +31,24 @@ type CsvParser struct {
 	recordBuffer []string
 }
 
-func NewCsvParser(r io.Reader) *CsvParser {
-	return &CsvParser{
+func NewCSVParser(r io.Reader) *CSVParser {
+	return &CSVParser{
 		reader:      bufio.NewReader(r),
 		currentLine: 1,
 		state:       StartField,
 	}
 }
 
-type CsvParseError struct {
+type CSVParseError struct {
 	Line    int
 	Message string
 }
 
-func (e *CsvParseError) Error() string {
+func (e *CSVParseError) Error() string {
 	return fmt.Sprintf("[Line %v]: %v", e.Line, e.Message)
 }
 
-func (p *CsvParser) ParseAll() ([][]string, error) {
+func (p *CSVParser) ParseAll() ([][]string, error) {
 	var records [][]string
 
 	for {
@@ -66,11 +66,11 @@ func (p *CsvParser) ParseAll() ([][]string, error) {
 
 }
 
-func (p *CsvParser) Parse() ([]string, error) {
+func (p *CSVParser) Parse() ([]string, error) {
 	return p.parseLine()
 }
 
-func (p *CsvParser) parseLine() ([]string, error) {
+func (p *CSVParser) parseLine() ([]string, error) {
 	for {
 		record, complete, err := p.parse()
 		if err != nil {
@@ -89,7 +89,7 @@ func (p *CsvParser) parseLine() ([]string, error) {
 	return nil, nil
 }
 
-func (p *CsvParser) parse() ([]string, bool, error) {
+func (p *CSVParser) parse() ([]string, bool, error) {
 	for {
 		v, err := p.reader.ReadByte()
 
@@ -121,7 +121,7 @@ func (p *CsvParser) parse() ([]string, bool, error) {
 		case UnquotedField:
 			switch v {
 			case '"':
-				return nil, false, &CsvParseError{
+				return nil, false, &CSVParseError{
 					Line:    p.currentLine,
 					Message: "unexpected quote in unquoted field",
 				}
@@ -131,7 +131,7 @@ func (p *CsvParser) parse() ([]string, bool, error) {
 				p.state = StartField
 
 			case '\n':
-				return nil, false, &CsvParseError{
+				return nil, false, &CSVParseError{
 					Line:    p.currentLine,
 					Message: "unexpected newline in unquoted field",
 				}
@@ -168,7 +168,7 @@ func (p *CsvParser) parse() ([]string, bool, error) {
 				p.state = FinishRecord
 
 			default:
-				return nil, false, &CsvParseError{
+				return nil, false, &CSVParseError{
 					Line:    p.currentLine,
 					Message: "invalid character after closing quote",
 				}
@@ -178,7 +178,7 @@ func (p *CsvParser) parse() ([]string, bool, error) {
 			p.pushField()
 
 			if v != '\n' {
-				return nil, false, &CsvParseError{
+				return nil, false, &CSVParseError{
 					Line:    p.currentLine,
 					Message: "invalid character after carriage return at the end of record",
 				}
@@ -196,7 +196,7 @@ func (p *CsvParser) parse() ([]string, bool, error) {
 	if p.done {
 		switch p.state {
 		case QuotedField:
-			return nil, false, &CsvParseError{
+			return nil, false, &CSVParseError{
 				Line:    p.currentLine,
 				Message: "unterminated quoted field",
 			}
@@ -213,7 +213,7 @@ func (p *CsvParser) parse() ([]string, bool, error) {
 				return p.finishRecord()
 			}
 		case FinishRecord:
-			return nil, false, &CsvParseError{
+			return nil, false, &CSVParseError{
 				Line:    p.currentLine,
 				Message: "line feed missing from end of record",
 			}
@@ -223,18 +223,18 @@ func (p *CsvParser) parse() ([]string, bool, error) {
 	return nil, false, nil
 }
 
-func (p *CsvParser) pushField() {
+func (p *CSVParser) pushField() {
 	p.recordBuffer = append(p.recordBuffer, string(p.fieldBuffer))
 	p.fieldBuffer = nil
 }
 
-func (p *CsvParser) finishRecord() ([]string, bool, error) {
+func (p *CSVParser) finishRecord() ([]string, bool, error) {
 	record := p.recordBuffer
 
 	if p.fieldsInARecord == 0 {
 		p.fieldsInARecord = len(record)
 	} else if len(record) != p.fieldsInARecord {
-		return nil, false, &CsvParseError{
+		return nil, false, &CSVParseError{
 			Line:    p.currentLine,
 			Message: fmt.Sprintf("unexpected number of fields in a record: got %d expected %d", len(record), p.fieldsInARecord),
 		}

@@ -10,7 +10,7 @@ import (
 
 func TestMultipleRecords(t *testing.T) {
 	input := "apple,orange,banana\r\n1,2,3\r\n"
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	got, err := parser.ParseAll()
 	want := [][]string{{"apple", "orange", "banana"}, {"1", "2", "3"}}
 
@@ -21,7 +21,7 @@ func TestMultipleRecords(t *testing.T) {
 
 func TestSingleRecord(t *testing.T) {
 	input := "apple,orange,banana\r\n"
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	got, err := parser.Parse()
 	want := []string{"apple", "orange", "banana"}
 
@@ -35,7 +35,7 @@ func TestSingleRecord(t *testing.T) {
  */
 func TestRecordMissingLineBreakLastLine(t *testing.T) {
 	input := "apple,orange,banana\r\n1,2,3"
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	records, err := parser.ParseAll()
 
 	if err != nil {
@@ -51,14 +51,14 @@ func TestRecordMissingLineBreakLastLine(t *testing.T) {
 
 func TestTooManyFields(t *testing.T) {
 	input := "apple,orange,banana\r\n1,2,3,4"
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	records, err := parser.ParseAll()
 
 	if err == nil {
 		t.Errorf("didn't return an error on too many fields")
 	}
 
-	var csvParseError *CsvParseError
+	var csvParseError *CSVParseError
 	if errors.As(err, &csvParseError) {
 		expectedErrorLine := 2
 		if csvParseError.Line != expectedErrorLine {
@@ -77,7 +77,7 @@ func TestTooManyFields(t *testing.T) {
 
 func TestTrailingDelimiter(t *testing.T) {
 	input := "apple,orange,banana,"
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	record, err := parser.Parse()
 
 	if err != nil {
@@ -92,7 +92,7 @@ func TestTrailingDelimiter(t *testing.T) {
 
 func TestUnescapedDoubleQuoteInQuotedField(t *testing.T) {
 	input := `apple,"orange"",banana`
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	_, err := parser.Parse()
 
 	if err == nil {
@@ -102,7 +102,7 @@ func TestUnescapedDoubleQuoteInQuotedField(t *testing.T) {
 
 func TestQuoteInUnquotedField(t *testing.T) {
 	input := `apple,ora"nge,banana`
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	_, err := parser.Parse()
 
 	if err == nil {
@@ -112,7 +112,7 @@ func TestQuoteInUnquotedField(t *testing.T) {
 
 func TestLineBreakWithinField(t *testing.T) {
 	input := `"apple","oran\r\nge","banana"`
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	_, err := parser.Parse()
 
 	if err != nil {
@@ -122,7 +122,7 @@ func TestLineBreakWithinField(t *testing.T) {
 
 func TestQuotedFieldWithEscapedDoubleQuote(t *testing.T) {
 	input := `"apple","oran""ge","banana"`
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	got, err := parser.Parse()
 	want := []string{"apple", `oran"ge`, "banana"}
 
@@ -137,7 +137,7 @@ func TestQuotedFieldWithEscapedDoubleQuote(t *testing.T) {
 
 func TestFieldContainingCommaEnclosedByDoubleQuotes(t *testing.T) {
 	input := `"apple","ora,nge","banana"`
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	got, err := parser.Parse()
 	want := []string{"apple", "ora,nge", "banana"}
 
@@ -152,7 +152,7 @@ func TestFieldContainingCommaEnclosedByDoubleQuotes(t *testing.T) {
 
 func TestEmptyFile(t *testing.T) {
 	input := ``
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	got, err := parser.Parse()
 	want := []string{}
 
@@ -167,7 +167,7 @@ func TestEmptyFile(t *testing.T) {
 
 func TestQuotedEmptyFields(t *testing.T) {
 	input := `"",""`
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	got, err := parser.Parse()
 	want := []string{"", ""}
 
@@ -182,7 +182,7 @@ func TestQuotedEmptyFields(t *testing.T) {
 
 func TestRecordTerminatedWithJustCarriageReturn(t *testing.T) {
 	input := "apple,orange\r"
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	_, err := parser.Parse()
 
 	if err == nil {
@@ -192,7 +192,7 @@ func TestRecordTerminatedWithJustCarriageReturn(t *testing.T) {
 
 func TestRecordTerminatedWithJustLineFeed(t *testing.T) {
 	input := "apple,orange\n"
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	_, err := parser.Parse()
 
 	if err == nil {
@@ -202,7 +202,7 @@ func TestRecordTerminatedWithJustLineFeed(t *testing.T) {
 
 func TestEmptyField(t *testing.T) {
 	input := "apple,,banana"
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	got, err := parser.Parse()
 	want := []string{"apple", "", "banana"}
 
@@ -217,7 +217,7 @@ func TestEmptyField(t *testing.T) {
 
 func TestStartingDelimiter(t *testing.T) {
 	input := ",orange,banana"
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	got, err := parser.Parse()
 	want := []string{"", "orange", "banana"}
 
@@ -232,7 +232,7 @@ func TestStartingDelimiter(t *testing.T) {
 
 func TestDelimitersOnly(t *testing.T) {
 	input := ",,"
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	got, err := parser.Parse()
 	want := []string{"", "", ""}
 
@@ -247,7 +247,7 @@ func TestDelimitersOnly(t *testing.T) {
 
 func TestRecordEndingAfterDelimiter(t *testing.T) {
 	input := "apple,orange,\r\n"
-	parser := NewCsvParser(strings.NewReader(input))
+	parser := NewCSVParser(strings.NewReader(input))
 	got, err := parser.Parse()
 	want := []string{"apple", "orange", ""}
 
