@@ -196,15 +196,6 @@ func (p *CSVParser) pushField() {
 func (p *CSVParser) finishRecord() ([]string, error) {
 	record := p.recordBuffer
 
-	if p.fieldsInARecord == 0 {
-		p.fieldsInARecord = len(record)
-	} else if len(record) != p.fieldsInARecord {
-		return nil, &CSVParseError{
-			Line:    p.currentLine,
-			Message: fmt.Sprintf("unexpected number of fields in a record: got %d expected %d", len(record), p.fieldsInARecord),
-		}
-	}
-
 	// reset state
 	p.recordBuffer = nil
 	p.fieldBuffer = p.fieldBuffer[:0]
