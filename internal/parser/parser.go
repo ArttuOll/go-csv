@@ -1,3 +1,4 @@
+// Package parser provides a strictly RFC-4180 compliant CSV parser.
 package parser
 
 import (
@@ -15,6 +16,7 @@ const (
 	AfterQuote
 )
 
+// CSVParser parses CSV formatted text (as defined by RFC-4180).
 type CSVParser struct {
 	reader          *bufio.Reader
 	fieldsInARecord int
@@ -26,6 +28,8 @@ type CSVParser struct {
 	recordBuffer []string
 }
 
+// NewCSVParser creates a new CSVParser that reads CSV formatted text
+// from r.
 func NewCSVParser(r io.Reader) *CSVParser {
 	return &CSVParser{
 		reader:      bufio.NewReader(r),
@@ -34,15 +38,20 @@ func NewCSVParser(r io.Reader) *CSVParser {
 	}
 }
 
+// CSVParseError represents an error that occurred
+// during CSV parsing.
 type CSVParseError struct {
-	Line    int
-	Message string
+	Line    int    // Line on which the error was encountered.
+	Message string // Message that explains the error.
 }
 
+// Error unwraps a CSVParseError into a string.
 func (e *CSVParseError) Error() string {
 	return fmt.Sprintf("line %v: %v", e.Line, e.Message)
 }
 
+// ParseAll parses records from CSVParser's reader until EOF is hit.
+// The parsed records are then returned. EOF is not considered an error.
 func (p *CSVParser) ParseAll() ([][]string, error) {
 	var records [][]string
 
@@ -61,6 +70,8 @@ func (p *CSVParser) ParseAll() ([][]string, error) {
 
 }
 
+// Parse parses a single record from CSVParser's reader.
+// EOF is not considered an error.
 func (p *CSVParser) Parse() ([]string, error) {
 	for {
 		record, complete, err := p.parse()
