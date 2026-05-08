@@ -13,7 +13,6 @@ const (
 	UnquotedField
 	QuotedField
 	AfterQuote
-	FinishRecord
 )
 
 type CSVParser struct {
@@ -105,11 +104,6 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 						p.recordBuffer = append(p.recordBuffer, "")
 						return p.finishRecord()
 					}
-				case FinishRecord:
-					return nil, false, &CSVParseError{
-						Line:    p.currentLine,
-						Message: "line feed missing from end of record",
-					}
 				}
 			}
 
@@ -127,7 +121,7 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 				p.recordBuffer = append(p.recordBuffer, "")
 
 			case '\r':
-				p.state = FinishRecord
+				return p.parseLineEnding()
 
 			default:
 				p.state = UnquotedField
@@ -153,7 +147,7 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 				}
 
 			case '\r':
-				p.state = FinishRecord
+				return p.parseLineEnding()
 
 			default:
 				p.fieldBuffer = append(p.fieldBuffer, v)
@@ -181,7 +175,7 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 				p.state = StartField
 
 			case '\r':
-				p.state = FinishRecord
+				return p.parseLineEnding()
 
 			default:
 				return nil, false, &CSVParseError{
@@ -189,20 +183,6 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 					Message: "invalid character after closing quote",
 				}
 			}
-
-		case FinishRecord:
-			p.pushField()
-
-			if v != '\n' {
-				return nil, false, &CSVParseError{
-					Line:    p.currentLine,
-					Message: "invalid character after carriage return at the end of record",
-				}
-			}
-
-			p.currentLine++
-
-			return p.finishRecord()
 		}
 	}
 }
@@ -230,4 +210,31 @@ func (p *CSVParser) finishRecord() ([]string, bool, error) {
 	p.state = StartField
 
 	return record, true, nil
+}
+
+func (p *CSVParser) parseLineEnding() ([]string, bool, error) {
+	next, err := p.reader.ReadByte()
+	if err != nil {
+		if err == io.EOF {
+			return nil, false, &CSVParseError{
+				Line:    p.currentLine,
+				Message: "line feed missing from end of record",
+			}
+		}
+
+		return nil, false, err
+	}
+
+	p.pushField()
+
+	if next != '\n' {
+		return nil, false, &CSVParseError{
+			Line:    p.currentLine,
+			Message: "invalid character after carriage return at the end of record",
+		}
+	}
+
+	p.currentLine++
+
+	return p.finishRecord()
 }
