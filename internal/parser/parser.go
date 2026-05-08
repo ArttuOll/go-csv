@@ -23,9 +23,7 @@ type CSVParser struct {
 
 	state ParserState
 
-	readToIndex int
-	position    int
-	done        bool
+	done bool
 
 	fieldBuffer  []byte
 	recordBuffer []string
@@ -190,8 +188,6 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 
 			return p.finishRecord()
 		}
-
-		p.position++
 	}
 
 	// EOF handling
