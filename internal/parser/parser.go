@@ -73,25 +73,15 @@ func (p *CSVParser) ParseAll() ([][]string, error) {
 // Parse parses a single record from CSVParser's reader.
 // EOF is not considered an error.
 func (p *CSVParser) Parse() ([]string, error) {
-	for {
-		record, complete, err := p.parse()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-
-			return nil, err
-		}
-
-		if complete {
-			return record, nil
-		}
+	record, err := p.parse()
+	if err != nil && err != io.EOF {
+		return nil, err
 	}
 
-	return nil, nil
+	return record, nil
 }
 
-func (p *CSVParser) parse() ([]string, bool, error) {
+func (p *CSVParser) parse() ([]string, error) {
 	for {
 		v, err := p.reader.ReadByte()
 
@@ -99,7 +89,7 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 			if err == io.EOF {
 				switch p.state {
 				case QuotedField:
-					return nil, false, &CSVParseError{
+					return nil, &CSVParseError{
 						Line:    p.currentLine,
 						Message: "unterminated quoted field",
 					}
@@ -118,7 +108,7 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 				}
 			}
 
-			return nil, false, err
+			return nil, err
 		}
 
 		switch p.state {
@@ -142,7 +132,7 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 		case UnquotedField:
 			switch v {
 			case '"':
-				return nil, false, &CSVParseError{
+				return nil, &CSVParseError{
 					Line:    p.currentLine,
 					Message: "unexpected quote in unquoted field",
 				}
@@ -152,7 +142,7 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 				p.state = StartField
 
 			case '\n':
-				return nil, false, &CSVParseError{
+				return nil, &CSVParseError{
 					Line:    p.currentLine,
 					Message: "unexpected newline in unquoted field",
 				}
@@ -189,7 +179,7 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 				return p.parseLineEnding()
 
 			default:
-				return nil, false, &CSVParseError{
+				return nil, &CSVParseError{
 					Line:    p.currentLine,
 					Message: "invalid character after closing quote",
 				}
@@ -203,13 +193,13 @@ func (p *CSVParser) pushField() {
 	p.fieldBuffer = p.fieldBuffer[:0]
 }
 
-func (p *CSVParser) finishRecord() ([]string, bool, error) {
+func (p *CSVParser) finishRecord() ([]string, error) {
 	record := p.recordBuffer
 
 	if p.fieldsInARecord == 0 {
 		p.fieldsInARecord = len(record)
 	} else if len(record) != p.fieldsInARecord {
-		return nil, false, &CSVParseError{
+		return nil, &CSVParseError{
 			Line:    p.currentLine,
 			Message: fmt.Sprintf("unexpected number of fields in a record: got %d expected %d", len(record), p.fieldsInARecord),
 		}
@@ -220,26 +210,26 @@ func (p *CSVParser) finishRecord() ([]string, bool, error) {
 	p.fieldBuffer = p.fieldBuffer[:0]
 	p.state = StartField
 
-	return record, true, nil
+	return record, nil
 }
 
-func (p *CSVParser) parseLineEnding() ([]string, bool, error) {
+func (p *CSVParser) parseLineEnding() ([]string, error) {
 	next, err := p.reader.ReadByte()
 	if err != nil {
 		if err == io.EOF {
-			return nil, false, &CSVParseError{
+			return nil, &CSVParseError{
 				Line:    p.currentLine,
 				Message: "line feed missing from end of record",
 			}
 		}
 
-		return nil, false, err
+		return nil, err
 	}
 
 	p.pushField()
 
 	if next != '\n' {
-		return nil, false, &CSVParseError{
+		return nil, &CSVParseError{
 			Line:    p.currentLine,
 			Message: "invalid character after carriage return at the end of record",
 		}
