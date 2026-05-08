@@ -51,18 +51,19 @@ func (e *CsvParseError) Error() string {
 func (p *CsvParser) ParseAll() ([][]string, error) {
 	var records [][]string
 
-	for !p.done {
+	for {
 		rec, err := p.parseLine()
 		if err != nil {
 			return records, err
 		}
 
-		if rec != nil {
-			records = append(records, rec)
+		if rec == nil {
+			return records, nil
 		}
+
+		records = append(records, rec)
 	}
 
-	return records, nil
 }
 
 func (p *CsvParser) Parse() ([]string, error) {
@@ -84,6 +85,7 @@ func (p *CsvParser) parseLine() ([]string, error) {
 			break
 		}
 	}
+
 	return nil, nil
 }
 
