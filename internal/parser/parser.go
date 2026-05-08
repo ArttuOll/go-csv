@@ -147,7 +147,7 @@ func (p *CSVParser) parse() ([]string, bool, error) {
 			switch v {
 			case '"':
 				p.state = AfterQuote
-			// Withing quoted fields the line break can be anything. \n is always present.
+			// Within quoted fields the line break can be anything. \n is always present.
 			case '\n':
 				p.currentLine++
 			default:
