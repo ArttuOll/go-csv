@@ -17,6 +17,33 @@ func TestParse_MultipleRecords(t *testing.T) {
 	}
 }
 
+func TestParse_RepeatedParsing(t *testing.T) {
+	input := "apple,orange,banana\r\n1,2,3\r\n"
+	parser := NewCSVParser(strings.NewReader(input))
+	got1, _ := parser.Parse()
+	got2, _ := parser.Parse()
+	got3, err := parser.Parse()
+
+	want1 := []string{"apple", "orange", "banana"}
+	want2 := []string{"1", "2", "3"}
+
+	if !slices.Equal(got1, want1) {
+		t.Fatalf("unexpected record parsed when parsing repeatedly: want %v, got %v", want1, got1)
+	}
+
+	if !slices.Equal(got2, want2) {
+		t.Fatalf("unexpected record parsed when parsing repeatedly: want %v, got %v", want2, got2)
+	}
+
+	if got3 != nil {
+		t.Fatalf("unexpected record parsed when parsing repeatedly: want %v, got %v", nil, got3)
+	}
+
+	if err != nil {
+		t.Fatalf("unexpected error when parsing repeatedly: %v", got3)
+	}
+}
+
 func TestParse_SingleRecord(t *testing.T) {
 	input := "apple,orange,banana\r\n"
 	parser := NewCSVParser(strings.NewReader(input))
@@ -173,6 +200,31 @@ func TestParse_RecordTerminatedWithJustCarriageReturn(t *testing.T) {
 
 	if err == nil {
 		t.Fatalf("record isn't allowed to be terminated with just a carriage return")
+	}
+}
+
+func TestParse_MalformedLineBreak(t *testing.T) {
+	input := "apple,orange\rX"
+	parser := NewCSVParser(strings.NewReader(input))
+	_, err := parser.Parse()
+
+	if err == nil {
+		t.Fatalf("should error when encountering a malformed line-break")
+	}
+}
+
+func TestParse_EOFAfterQuote(t *testing.T) {
+	input := `"orange"`
+	parser := NewCSVParser(strings.NewReader(input))
+	got, err := parser.Parse()
+	want := []string{"orange"}
+
+	if err != nil {
+		t.Fatalf("unexpected error when parsing a plain quoted field: %v", err)
+	}
+
+	if !slices.Equal(got, want) {
+		t.Fatalf("unexpected string parsed from a plain quoted field: %v", got)
 	}
 }
 
